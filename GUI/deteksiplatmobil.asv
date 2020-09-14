@@ -1,0 +1,303 @@
+function varargout = deteksiplatmobil(varargin)
+% DETEKSIPLATMOBIL M-file for deteksiplatmobil.fig
+%      DETEKSIPLATMOBIL, by itself, creates a new DETEKSIPLATMOBIL or raises the existing
+%      singleton*.
+%
+%      H = DETEKSIPLATMOBIL returns the handle to a new DETEKSIPLATMOBIL or the handle to
+%      the existing singleton*.
+%
+%      DETEKSIPLATMOBIL('CALLBACK',hObject,eventData,handles,...) calls the local
+%      function named CALLBACK in DETEKSIPLATMOBIL.M with the given input arguments.
+%
+%      DETEKSIPLATMOBIL('Property','Value',...) creates a new DETEKSIPLATMOBIL or raises the
+%      existing singleton*.  Starting from the left, property value pairs are
+%      applied to the GUI before deteksiplatmobil_OpeningFunction gets called.  An
+%      unrecognized property name or invalid value makes property application
+%      stop.  All inputs are passed to deteksiplatmobil_OpeningFcn via varargin.
+%
+%      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
+%      instance to run (singleton)".
+%
+% See also: GUIDE, GUIDATA, GUIHANDLES
+
+% Copyright 2002-2003 The MathWorks, Inc.
+
+% Edit the above text to modify the response to help deteksiplatmobil
+
+
+% Last Modified by GUIDE v2.5 22-Aug-2011 23:12:17
+
+% Begin initialization code - DO NOT EDIT
+gui_Singleton = 1;
+gui_State = struct('gui_Name',       mfilename, ...
+                   'gui_Singleton',  gui_Singleton, ...
+                   'gui_OpeningFcn', @deteksiplatmobil_OpeningFcn, ...
+                   'gui_OutputFcn',  @deteksiplatmobil_OutputFcn, ...
+                   'gui_LayoutFcn',  [] , ...
+                   'gui_Callback',   []);
+if nargin && ischar(varargin{1})
+    gui_State.gui_Callback = str2func(varargin{1});
+end
+
+if nargout
+    [varargout{1:nargout}] = gui_mainfcn(gui_State, varargin{:});
+else
+    gui_mainfcn(gui_State, varargin{:});
+end
+% End initialization code - DO NOT EDIT
+
+
+% --- Executes just before deteksiplatmobil is made visible.
+function deteksiplatmobil_OpeningFcn(hObject, eventdata, handles, varargin)
+% This function has no output args, see OutputFcn.
+% hObject    handle to figure
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+% varargin   command line arguments to deteksiplatmobil (see VARARGIN)
+
+% Choose default command line output for deteksiplatmobil
+handles.output = hObject;
+
+% Update handles structure
+guidata(hObject, handles);
+
+% UIWAIT makes deteksiplatmobil wait for user response (see UIRESUME)
+% uiwait(handles.figure1);
+
+
+% --- Outputs from this function are returned to the command line.
+function varargout = deteksiplatmobil_OutputFcn(hObject, eventdata, handles) 
+% varargout  cell array for returning output args (see VARARGOUT);
+% hObject    handle to figure
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Get default command line output from handles structure
+varargout{1} = handles.output;
+
+
+% --- Executes on button press in cmdBrowse.
+function cmdBrowse_Callback(hObject, eventdata, handles)
+% hObject    handle to cmdBrowse (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in cmdDeteksi.
+function cmdDeteksi_Callback(hObject, eventdata, handles)
+% hObject    handle to cmdDeteksi (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+%Pengolahan gambar
+Igray = rgb2gray(I);
+%figure,imshow(Igray)
+Ibw = im2bw(Igray,graythresh(Igray));
+%figure,imshow(Ibw)
+num_bins = 256;
+counts = imhist(I,num_bins);
+p = counts / sum(counts);
+omega = cumsum(p);
+mu = cumsum(p .* (1:num_bins)');
+mu_t = mu(end);
+state = warning;
+warning off;
+sigma_b_squared = (mu_t * omega - mu).^2 ./ (omega .* (1 - omega));
+maxval = max(sigma_b_squared);
+if isfinite(maxval)
+idx = mean(find(sigma_b_squared == maxval));
+% Normalize the threshold to the range [0, 1].
+level = (idx - 1) / (num_bins - 1);
+else
+level = 0.0;
+end
+
+Ifill= imfill(Ibw,'holes');
+%figure,imshow(Ifill)
+if do_fillholes
+marker = I;
+idx = cell(1,ndims(I));
+for k = 1:ndims(I)
+idx{k} = 2:(size(I,k) - 1);
+end
+if ~islogical(marker)
+marker(idx{:}) = Inf;
+else
+marker(idx{:}) = 1;
+end
+I2=imcomplement(imreconstruct(imcomplement(marker),imcomplement(I),conn));
+else
+mask = imcomplement(I);
+marker = mask;
+marker(:) = 0;
+marker(locations) = mask(locations);
+marker = imreconstruct(marker, mask, conn);
+I2 = I | marker;
+End
+
+[Ilabel num] = bwlabel(Ifill,8);
+Iprops=regionprops(Ilabel);
+if (isempty(labels))
+numLabels = 0;
+else
+numLabels = max(labels);
+end
+% Create a sparse matrix representing the equivalence graph.
+tmp = (1:numLabels)';
+A = sparse([i;j;tmp], [j;i;tmp], 1, numLabels, numLabels);
+[p,p,r] = dmperm(A);
+sizes = diff(r);
+numComponents = length(sizes); % Number of components.
+blocks = zeros(1,numLabels);
+blocks(r(1:numComponents)) = 1;
+blocks = cumsum(blocks);
+blocks(p) = blocks;
+labels = blocks(labels);
+L = bwlabel2(sr, er, sc, labels, M, N);
+
+Ibox21=[Iprops.BoundingBox]
+Ibox21=reshape(Ibox2,[4 num2]);
+[r,c]=size(Ibw);
+kandi=find(Ibox1(4,:)>(0.47*r));
+Ibox21=Ibox1(:,kandi);
+
+buang=find(Ibox21(3,:)>(0.9*c));
+verti=Ibox21(4,buang);
+ting=Ibox21(4,:);
+ting(buang)=[];
+tinggistandar=ting;
+rata2=mean(tinggistandar);
+
+Ibox22=misah(Ibox21,buang,rata2);
+Ibox23=imcrop(Ibw,Ibox22);
+Ib=labeling_new(Ibox23);
+[er,ce]=size(Ibox23);
+kandid=find(Ib(4,:)>(0.47*er));
+Ibox2=Ib(:,kandid);
+
+[nilai posisis]=max(Ibox2(3,:));
+lebarstandar=mean(Ibox2(3,:));
+sel=(nilai)-(lebarstandar);
+if sel > (nilai/3)
+buanglagi=(posisis);
+else
+buanglagi=[]
+end
+
+if isempty(buanglagi)==1
+Ibox3=Ibox2;
+else
+Ibox3=pisah(Ibox2,lebarstandar);
+end
+
+% --- Executes on button press in cmdPrint.
+function cmdPrint_Callback(hObject, eventdata, handles)
+% hObject    handle to cmdPrint (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+function txtUsername_Callback(hObject, eventdata, handles)
+% hObject    handle to txtUsername (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of txtUsername as text
+%        str2double(get(hObject,'String')) returns contents of txtUsername as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function txtUsername_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to txtUsername (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc
+    set(hObject,'BackgroundColor','white');
+else
+    set(hObject,'BackgroundColor',get(0,'defaultUicontrolBackgroundColor'));
+end
+
+function txtPass_Callback(hObject, eventdata, handles)
+% hObject    handle to txtPass (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of txtPass as text
+%        str2double(get(hObject,'String')) returns contents of txtPass as a double
+
+% --- Executes during object creation, after setting all properties.
+function txtPass_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to txtPass (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc
+    set(hObject,'BackgroundColor','white');
+else
+    set(hObject,'BackgroundColor',get(0,'defaultUicontrolBackgroundColor'));
+end
+
+function cmdLogin_Callback(hObject, eventdata, handles)
+% hObject    handle to cmdLogin (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+data1 = get(handles.txtUsername,'String');
+data2 = get(handles.txtPass,'String');
+
+isi1 = 'platmobil';
+isi2 = 'coba';
+
+banding1 = strcmp(data1, isi1);
+banding2 = strcmp(data2, isi2);
+
+if(banding1==1) 
+    if(banding2==1)
+        set(handles.cmdLogin, 'Visible', 'off');
+        set(handles.cmdCancel, 'Visible', 'off');
+        set(handles.uipanel9, 'Visible', 'off');
+        
+        set(handles.uipanel1, 'Visible', 'on');
+        set(handles.uipanel2, 'Visible', 'on');
+        set(handles.uipanel3, 'Visible', 'on');
+        set(handles.cmdBrowse, 'Visible', 'on');
+        set(handles.cmdDeteksi, 'Visible', 'on');
+        set(handles.cmdPrint, 'Visible', 'on');
+        set(handles.hasil, 'Visible', 'on');
+    elseif(banding2==0)
+        set(handles.message, 'Visible', 'on');
+        set(handles.OK, 'Visible', 'on');
+        set(handles.peringatan, 'Visible', 'on');
+        set(handles.peringatan, 'String', 'Password Anda Salah!');
+    end
+elseif(banding1==0)
+    if(banding2==1)
+        set(handles.message, 'Visible', 'on');
+        set(handles.OK, 'Visible', 'on');
+        set(handles.peringatan, 'Visible', 'on');
+        set(handles.peringatan, 'String', 'Username Anda Salah!');
+    elseif(banding2==0)
+         set(handles.message, 'Visible', 'on');
+         set(handles.OK, 'Visible', 'on');
+         set(handles.peringatan, 'Visible', 'on');
+         set(handles.peringatan, 'String', 'Username dan Password Anda Salah!');
+    end
+end
+% --- Executes on button press in cmdCancel.
+function cmdCancel_Callback(hObject, eventdata, handles)
+% hObject    handle to cmdCancel (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+set(handles.txtUsername,'String', ' ');
+set(handles.txtPass,'String', ' ');
+% --- Executes on button press in OK.
+function OK_Callback(hObject, eventdata, handles)
+% hObject    handle to OK (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+ set(handles.message, 'Visible', 'off');
+ set(handles.OK, 'Visible', 'off');
+ set(handles.peringatan, 'Visible', 'off');
+ 
